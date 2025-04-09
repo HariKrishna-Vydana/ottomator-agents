@@ -32,5 +32,5 @@ class Appointment_Customer(BaseModel):
     Phone_number: str | None = None
     Services: Optional[List[str]] = Field(default=None, description="List of valid services")
     Booked_appointment: Appointment | None = None
-    dropoff: Optional[bool] = None
-    satisfaction: Optional[int] = None
+    Dropoff: Optional[bool] = None
+    Satisfaction: Optional[int] = None

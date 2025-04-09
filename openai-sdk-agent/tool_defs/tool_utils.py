@@ -66,22 +66,34 @@ async def propose_slots_negotiator(activity: str, appointmentid: str, starttime:
     pass;
 
 @function_tool
-async def check_dropoff_availability(context: RunContextWrapper[Appointment_Customer])->None:
-    """ check if drop off is avalability for the service"""
+async def arrange_dropoff(context: RunContextWrapper[Appointment_Customer])->str:
+    """ This tool arranges the dropoff service"""
+    User=Query()
     context.context.Dropoff=True
+    curr_ser=context.context.Services[0]
+    curr_ser_row = DROPOFF_DB.search(User.service == curr_ser)[0]
+    curr_ser_row['dropoff_cars']-=1
+    DROPOFF_DB.update(curr_ser)
+    print(f"Updated records: {DROPOFF_DB.all()}")
+        
+@function_tool
+async def check_dropoff_availability(context: RunContextWrapper[Appointment_Customer])-> str:
+    """ This tool checks if the dropoff service is available"""
+    cars_available=0
     User=Query()
     for s in context.context.Services:
         result = DROPOFF_DB.search(User.service == s)
-        cars_available+=result['dropoff_cars']
+        if result:
+            dropoff_info = result[0]
+            cars_available+=dropoff_info.get('dropoff_cars', 0)
+        print(cars_available)
         if cars_available > 0:
-            # Updating the records fro drop off
-            curr_ser=context.context.Services[0]
-            curr_ser['dropoff_cars']-=1
-            DROPOFF_DB.update(curr_ser)
-            print(f"Updated records: {DROPOFF_DB.all()}")
             return "The dropoff cars are available"
         else:
             return "The dropoff cars are not available"
+
+
+
 
 
 
@@ -114,7 +126,8 @@ async def appointment_reporter(context: RunContextWrapper[Appointment_Customer],
 
 @function_tool
 async def call_record_logger(context: RunContextWrapper[Appointment_Customer], feedback:Optional[int])-> None:
-    """This function logs the whole conversation and exits call"""
+    """This function logs the whole conversation to finish the conversation"""
+    breakpoint()
     context.context.Satisfaction=feedback
     CallRECORDS_DB.insert(context.context.dict())
     CallRECORDS_DB.flush()
@@ -136,7 +149,6 @@ async def get_filled_appointments(email: str)-> List[Tuple]:
     """The function interacts with calender and gives the list of already filled appointments"""
     User=Query()
     result = APPOINTMENTS_DB.search(User.user == email)
-    print(result)
     time_slots=[(ele['startTime'], ele['endTime']) for ele in result]
     print(time_slots)
     if not time_slots:
@@ -170,11 +182,11 @@ async def cancel_appointment(email: str)-> str:
 
 
 @function_tool
-async def book_appointment(startTime: str, endTime: str,subject: str, email: str, body: str,) -> str:
+async def book_appointment(context: RunContextWrapper[Appointment_Customer], startTime: str, endTime: str,subject: str, email: str, body: str,) -> str:
     """The function books the appointment"""
     input_json={"startTime": startTime, "endTime": endTime, "subject": subject, "user": email,"body": body,}
-    print(input_json)
-
+    print(f"Inside booking appointments........{input_json}")
+    breakpoint()
     async with aiohttp.ClientSession() as session:
         try:
             async with session.post(
@@ -185,6 +197,19 @@ async def book_appointment(startTime: str, endTime: str,subject: str, email: str
                     resp_json=await resp.json()
                     input_json.update({"id": resp_json["id"], "user":email})
                     APPOINTMENTS_DB.insert(input_json)
+
+
+                    if context.context.Booked_appointment is None:
+                        context.context.Booked_appointment = Appointment()
+                    context.context.Booked_appointment.startTime=startTime
+                    context.context.Booked_appointment.endTime=endTime
+                    context.context.Booked_appointment.subject=subject
+                    context.context.Booked_appointment.user=email
+                    context.context.Booked_appointment.body=body
+                    CallRECORDS_DB.insert(context.context.dict())
+
+
+
                     return "booking succeeded!"
                 else:
                     return "booking failed!"

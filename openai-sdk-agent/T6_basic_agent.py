@@ -51,7 +51,7 @@ pickup_dropoff_agent = Agent(
                 "if the user needs a dropoff use arrange_dropoff tool to arrange it"
                 "After finsihing the dropoff arrangements, Ask the user to rate the conversation between 1-10, and call call_record_logger tool to finish conversation",
     model="gpt-4o-mini",
-    tools=[arrange_dropoff, check_dropoff_availability, call_record_logger])
+    tools=[arrange_dropoff,check_dropoff_availability, call_record_logger])
 
 
 time_slot_negotiator = Agent(
@@ -62,12 +62,10 @@ time_slot_negotiator = Agent(
                 "You just ask the prefered dates and time window to book an appointent"
                 "After prefered time slot, use get_filled_appointments tool to get a list of filled appointments and propose slots that do not overlap with them."
                 "To book the appointment use book_appointment tool, while doing it use email as body"
-                "To cancel the appointment use cancel_appointment tool"
-                "To arrange pickup and dropoff handoff to pickup_dropoff_agent",
+                "To cancel the appointment use cancel_appointment tool",
+                #"After book_appointment or cancel_appointment handoff to pickup_dropoff_agent",
     model="gpt-4o-mini",
-    handoffs=[pickup_dropoff_agent],
-    tools=[get_filled_appointments, book_appointment, cancel_appointment]
-    )
+    tools=[get_filled_appointments, book_appointment, cancel_appointment])
 #
 
 
@@ -86,7 +84,7 @@ details_collector = Agent(
                 "To verify email, mobile number, services use the tools verify_email, verify_mobile_no and verify_services"
                 "if they are not valid ask again and wait till you get valid, you can use as many function calls as you want"
                 "Once all the details are filled call details_formatter_fn"
-                "After formatting the details handoff to time_slot_negotiator",
+                "After formatting the details handoff to an agent time_slot_negotiator",
     model="gpt-4o-mini",
     handoffs=[time_slot_negotiator],
     tools=[verify_email, verify_mobile_no, verify_services, details_formatter_fn]

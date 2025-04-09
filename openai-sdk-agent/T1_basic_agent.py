@@ -25,15 +25,7 @@ VALID_SERVICES = ast.literal_eval(os.getenv("VALID_SERVICES", "[]"))
 
 
 
-time_slot_negotiator = Agent(
-    name="time_slot_negotiator", 
-    instructions="You are a helpful assistant. You will be shceduling appointmnets based on users request."
-                "Keep responses short with in one sentence or less. Do not answer questions that do not belong to an appointment booking agent."
-                "you will recieve users details as an input. You just ask the the prefered dates to book an appointent, during the prefered dates ask for the prefered time window."
-                "Once all the details are filled hand off to the formatting agent and get the formatted output",
-    model="gpt-4o-mini",
-    tools=[calender_tool],
-    )
+
 
 
 details_formatter = Agent(
@@ -55,7 +47,8 @@ details_collector = Agent(
                 "After the formatting agent handoff the time_slot_negotiator agent",
     model="gpt-4o-mini",
     handoffs=[details_formatter],
-    tools=[verify_email, verify_mobile_no, verify_services]
+    tools=[verify_email, verify_mobile_no, verify_services], 
+    output_type=CollectDetails
     )
 
 

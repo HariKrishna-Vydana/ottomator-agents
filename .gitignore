@@ -4,3 +4,4 @@ __pycache__
 chroma_db
 .gradio
 .langgraph_api
+openai-sdk-agent/.env
