@@ -1,0 +1,22 @@
+
+    digraph G {
+        graph [splines=true];
+        node [fontname="Arial"];
+        edge [penwidth=1.5];
+    "__start__" [label="__start__", shape=ellipse, style=filled, fillcolor=lightblue, width=0.5, height=0.3];"__end__" [label="__end__", shape=ellipse, style=filled, fillcolor=lightblue, width=0.5, height=0.3];"details_collector" [label="details_collector", shape=box, style=filled, fillcolor=lightyellow, width=1.5, height=0.8];"verify_email" [label="verify_email", shape=ellipse, style=filled, fillcolor=lightgreen, width=0.5, height=0.3];"verify_mobile_no" [label="verify_mobile_no", shape=ellipse, style=filled, fillcolor=lightgreen, width=0.5, height=0.3];"verify_services" [label="verify_services", shape=ellipse, style=filled, fillcolor=lightgreen, width=0.5, height=0.3];"Formatter" [label="Formatter", shape=box, style=filled, style=rounded, fillcolor=lightyellow, width=1.5, height=0.8];"__start__" [label="__start__", shape=ellipse, style=filled, fillcolor=lightblue, width=0.5, height=0.3];"__end__" [label="__end__", shape=ellipse, style=filled, fillcolor=lightblue, width=0.5, height=0.3];"Formatter" [label="Formatter", shape=box, style=filled, fillcolor=lightyellow, width=1.5, height=0.8];"time_slot_negotiator" [label="time_slot_negotiator", shape=box, style=filled, style=rounded, fillcolor=lightyellow, width=1.5, height=0.8];"__start__" [label="__start__", shape=ellipse, style=filled, fillcolor=lightblue, width=0.5, height=0.3];"__end__" [label="__end__", shape=ellipse, style=filled, fillcolor=lightblue, width=0.5, height=0.3];"time_slot_negotiator" [label="time_slot_negotiator", shape=box, style=filled, fillcolor=lightyellow, width=1.5, height=0.8];"get_filled_appointments" [label="get_filled_appointments", shape=ellipse, style=filled, fillcolor=lightgreen, width=0.5, height=0.3];"book_appointment" [label="book_appointment", shape=ellipse, style=filled, fillcolor=lightgreen, width=0.5, height=0.3];"cancel_appointment" [label="cancel_appointment", shape=ellipse, style=filled, fillcolor=lightgreen, width=0.5, height=0.3];"check_dropoff_availability" [label="check_dropoff_availability", shape=ellipse, style=filled, fillcolor=lightgreen, width=0.5, height=0.3];"__start__" -> "details_collector";
+        "details_collector" -> "verify_email" [style=dotted, penwidth=1.5];
+        "verify_email" -> "details_collector" [style=dotted, penwidth=1.5];
+        "details_collector" -> "verify_mobile_no" [style=dotted, penwidth=1.5];
+        "verify_mobile_no" -> "details_collector" [style=dotted, penwidth=1.5];
+        "details_collector" -> "verify_services" [style=dotted, penwidth=1.5];
+        "verify_services" -> "details_collector" [style=dotted, penwidth=1.5];
+            "details_collector" -> "Formatter";
+            "Formatter" -> "time_slot_negotiator";
+        "time_slot_negotiator" -> "get_filled_appointments" [style=dotted, penwidth=1.5];
+        "get_filled_appointments" -> "time_slot_negotiator" [style=dotted, penwidth=1.5];
+        "time_slot_negotiator" -> "book_appointment" [style=dotted, penwidth=1.5];
+        "book_appointment" -> "time_slot_negotiator" [style=dotted, penwidth=1.5];
+        "time_slot_negotiator" -> "cancel_appointment" [style=dotted, penwidth=1.5];
+        "cancel_appointment" -> "time_slot_negotiator" [style=dotted, penwidth=1.5];
+        "time_slot_negotiator" -> "check_dropoff_availability" [style=dotted, penwidth=1.5];
+        "check_dropoff_availability" -> "time_slot_negotiator" [style=dotted, penwidth=1.5];"time_slot_negotiator" -> "__end__";}

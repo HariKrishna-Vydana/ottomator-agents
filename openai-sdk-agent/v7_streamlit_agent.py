@@ -19,33 +19,59 @@ from agents import Runner
 # Page configuration
 st.set_page_config(
     page_title="Telepathy AI Labs Receptionist",
-    page_icon="💁‍♀️ / 💁‍♂️",
+    page_icon="💁‍♀️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+# Display the main title
+st.title("Telepathy AI Labs Receptionist")
+
+# Show the icons underneath the title3
+st.markdown("### 💁‍♀️ / 💁‍♂️")
+#st.title("💁‍♀️ / 💁‍♂️,  \n *I am Telepathy AI Labs Receptionist*")
+st.markdown("""
+<div style="font-size:24px; line-height:1.6">
+    <p>1. I can book an appointment for automotive services in less than 2 mins.</p>
+    <p>2. For ther Matters, You can talk to one of our executives.</p>
+</div>
+""", unsafe_allow_html=True)
+
 # Custom CSS for better styling
 st.markdown("""
 <style>
+    /* Page background and text */
+    body {
+        background-color:#3E3A59;
+        color: #3E3A59;
+    }
+
+    /* Chat message container */
     .chat-message {
         padding: 1.5rem; 
         border-radius: 0.5rem; 
         margin-bottom: 1rem; 
         display: flex;
         flex-direction: column;
+        background-color: #3E3A59; /* dark gray bubble */
+        color: #3E3A59; /* text inside */
     }
+
     .chat-message.user {
-        background-color: #e6f7ff;
-        border-left: 5px solid #2196F3;
+        background-color: #3E3A59; /* dark blue */
+        border-left: 15px solid #2196F3;
     }
+
     .chat-message.assistant {
-        background-color: #f0f0f0;
-        border-left: 5px solid #4CAF50;
+        background-color: #3E3A59;
+        border-left: 15px solid #4CAF50;
     }
+
     .chat-message .content {
         display: flex;
         margin-top: 0.5rem;
     }
+
     .avatar {
         width: 40px;
         height: 40px;
@@ -53,13 +79,15 @@ st.markdown("""
         object-fit: cover;
         margin-right: 1rem;
     }
+
     .message {
         flex: 1;
-        color: #000000;
+        color: #3E3A59;
     }
+
     .timestamp {
-        font-size: 0.8rem;
-        color: #888;
+        font-size: 1.8rem;
+        color: #3E3A59;
         margin-top: 0.2rem;
     }
 </style>
@@ -149,28 +177,28 @@ def handle_user_message(user_input: str):
 
 # Sidebar for user preferences
 with st.sidebar:
-    st.title("How can I help you")
+    st.title("Some Details...")
     
     st.subheader("About You")
-    traveler_name = st.text_input("Your Name", value="Traveler")
+    traveler_name = st.text_input("Your Name", value="")
     
     st.subheader("Services ")
     preferred_airlines = st.multiselect(
-        "Preferred Airlines",
-        ["SkyWays", "OceanAir", "MountainJet", "Delta", "United", "American", "Southwest"],
+        "Available services",
+        ["oil change", "Service", "Tire rotation", "General check", "Quote", "Sales"],
         default=st.session_state.user_context.preferred_airlines
     )
     
     preferred_amenities = st.multiselect(
-        "Must-have Hotel Amenities",
-        ["WiFi", "Pool", "Gym", "Free Breakfast", "Restaurant", "Spa", "Parking"],
+        "Pickup of drop off",
+        ["Pickup", "Drop-off"],
         default=st.session_state.user_context.hotel_amenities
     )
     
-    budget_level = st.select_slider(
-        "Budget Level",
-        options=["budget", "mid-range", "luxury"],
-        value=st.session_state.user_context.budget_level or "mid-range"
+    budget_level = st.multiselect(
+        "Time slot prefered",
+        ["Morning", "evening", "middays"],
+        default=st.session_state.user_context.budget_level
     )
     
     if st.button("Save Preferences"):
@@ -187,8 +215,7 @@ with st.sidebar:
         st.success("New conversation started!")
 
 # Main chat interface
-st.title("✈️ Travel Planner Assistant")
-st.caption("Ask me about travel destinations, flight options, hotel recommendations, and more!")
+
 
 # Display chat messages
 for message in st.session_state.chat_history:
@@ -219,7 +246,7 @@ for message in st.session_state.chat_history:
             """, unsafe_allow_html=True)
 
 # User input
-user_input = st.chat_input("Ask about travel plans...")
+user_input = st.chat_input("How can I help you")
 if user_input:
     handle_user_message(user_input)
     st.rerun()
@@ -272,4 +299,4 @@ if st.session_state.processing_message:
 
 # Footer
 st.divider()
-st.caption("Powered by OpenAI Agents SDK | Built with Streamlit")
+st.markdown("**Under testing from Hari Vydana....** |\n OpenAI Agents SDK + Streamlit")
