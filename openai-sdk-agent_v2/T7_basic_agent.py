@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-from agents import Agent, Runner, function_tool, RunContextWrapper, handoff
+from agents import Agent, Runner, function_tool, RunContextWrapper, handoff, HandoffInputData
+from agents.extensions import handoff_filters
+
 from dotenv import load_dotenv
 import uuid
 import ast
@@ -56,16 +58,15 @@ pickup_dropoff_agent = Agent(
 
 time_slot_negotiator = Agent(
     name="time_slot_negotiator", 
-    instructions="You are a helpful assistant.You will be shceduling appointmnets based on users request."
+    handoff_description="you will be shceduling appointmnets based on users request.",
+    instructions="You are a helpful assistant."
                 "Keep responses short within a sentence or less. Do not answer questions that do not belong to an appointment booking agent."
                 f"For reference time and date now is {datetime_iso_format}, format all the dates in ISO 8601 format"
                 "You just ask the prefered dates and time window to book an appointent"
                 "After prefered time slot, use get_filled_appointments tool to get a list of filled appointments and propose slots that do not overlap with them."
                 "To book the appointment use book_appointment tool, while doing it use email as body"
-                "To cancel the appointment use cancel_appointment tool"
-                "After finishng all the tasks handoff to pickup_dropoff_agent",
+                "To cancel the appointment use cancel_appointment tool",
     model="gpt-4o-mini",
-    handoffs=[pickup_dropoff_agent],
     tools=[get_filled_appointments, book_appointment, cancel_appointment]
     )
 #
@@ -75,25 +76,43 @@ class AnalysisSummary(BaseModel):
     summary: str
     """Short text summary for this aspect of the analysis."""
 
+def _handoff_message_filter(handoff_message_data: HandoffInputData) -> HandoffInputData:
+    # First, we'll remove any tool-related messages from the message history
+    handoff_message_data = handoff_filters.remove_all_tools(handoff_message_data)
+
+    # Second, we'll also remove the first two items from the history, just for demonstration
+    history = (
+        tuple(handoff_message_data.input_history[2:])
+        if isinstance(handoff_message_data.input_history, tuple)
+        else handoff_message_data.input_history)
+
+    return HandoffInputData(input_history=history, 
+                            pre_handoff_items=tuple(handoff_message_data.pre_handoff_items),
+                            new_items=tuple(handoff_message_data.new_items),)
+
+
+
 
 
 details_collector = Agent(
     name="details_collector", 
     instructions="You are a helpful receptionist. When someone speaks to you, collect the following details: "
                 "Keep responses short 1 sentence or less. Do not answer questions that do not belong to an appointment booking agent."
-                f"The valid services you offer are {','.join(VALID_SERVICES)}"
+                f"The valid services you offer are {','.join(VALID_SERVICES)}, customer can book or more services"
                 "Name, email, phone number, and services they want to book. Whenever you get any of the details first verify them"
                 "To verify email, mobile number, services use the tools verify_email, verify_mobile_no and verify_services"
                 "if they are not valid ask again and wait till you get valid, you can use as many function calls as you want"
-                "Once all the details are filled call details_formatter_fn"
-                "After formatting the details handoff to time_slot_negotiator",
+                "Once all the details are filled call details_formatter_fn",
     model="gpt-4o-mini",
-    handoffs=[time_slot_negotiator],
     tools=[verify_email, verify_mobile_no, verify_services, details_formatter_fn]
     )
 
 
-
+summary_agent = Agent(
+    name="summary_agent", 
+    instructions="you need to summarize the conversation betwen a customer trying to book and appointment and LLM Agent",
+    model="gpt-4o-mini",
+    output_type=AnalysisSummary)
 
 
 
@@ -119,9 +138,17 @@ class UserContext:
     services: List[str] = Field(default_factory=list)
 
 
-async def run_agent(messages, context):
+async def run_agent(agent, messages, context):
     result = await Runner.run(agent, input=messages, context=context)
+    print(f"Inside run_agent ----> {result}")
     return result.final_output
+
+
+async def run_summary_agent(agent, messages, context):
+    result = await Runner.run(agent, input=messages, context=context)
+    print(f"Inside run_agent ----> {result}")
+    return result.final_output
+
 
 
 async def run_agent_and_update_context(messages, user_id: str) -> UserContext:
@@ -141,47 +168,69 @@ async def run_agent_and_update_context(messages, user_id: str) -> UserContext:
 
 
 
+
 def main():
-    
+    # Set page config
+    st.set_page_config(page_title="Telepathy AI Assistant", page_icon="💬", layout="wide")
+
+    # Initialize session variables
     if "session_id" not in st.session_state:
         st.session_state.session_id = str(uuid.uuid4()) 
 
-    st.set_page_config(page_title="Telepathy AI Assistant", page_icon="💬", layout="wide")
-    context=Appointment_Customer()
+    if "context" not in st.session_state:
+        st.session_state.context = Appointment_Customer()
+        #context.progress=[]
+    if "messages" not in st.session_state:
+        st.session_state.messages = [{"role": "assistant", "content": "Hii, I am Richard, How can I help you."}]
 
-    
-
+    # Reset session button
     if st.button("🔄 Reset Session"):
         st.session_state.clear()
         st.rerun()
 
-
-    if "messages" not in st.session_state:
-        st.session_state.messages =[{"role": "assistant", "content": "Hii, I am Richard, How can i help you."}]
-
+    # Display conversation history
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
-    
+
+    # Handle user input
     if user_input := st.chat_input("type your message here..."):
-        st.session_state.messages.append({"role":"user", "content": user_input})
+        st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.markdown(user_input)
-        
+
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                response = asyncio.run(run_agent(st.session_state.messages, context))
-                if isinstance(response, CollectDetails):
-                    st.markdown(response.model_dump())
-                    st.session_state.messages.append({"role":"assistant", "content": str(response.model_dump())})
-                else:
-                    st.markdown(response)
-                    st.session_state.messages.append({"role":"assistant", "content": response})
-                #context = asyncio.run(run_agent_and_update_context(st.session_state.messages, user_id="user123"))
-                #st.success("All details collected!")
-                #st.json(context.__dict__)
+                context = st.session_state.context
+                
 
-        #st.session_state.messages.append({"role": "assistant", "content": response})
+                # Only collect details if missing
+                if not (context.Name and context.Email and context.Services):
+                    response = asyncio.run(run_agent(details_collector, st.session_state.messages, context))
+                    if isinstance(response, CollectDetails):
+                        st.markdown(response.model_dump())
+                        st.session_state.messages.append({"role": "assistant", "content": str(response.model_dump())})
+                    else:
+                        st.markdown(response)
+                        st.session_state.messages.append({"role": "assistant", "content": response})
+                else:
+                    context.progress.append("details_collector")
+                    # Create summary only once
+                    if not context.conv_context:
+                        context.conv_context = []
+                        response = asyncio.run(run_agent(summary_agent, st.session_state.messages, context))
+                        context.conv_context.append({"role": details_collector.name, "content": response.summary})
+                        context.progress.append("summary_agent")
+                    # Show conversation history
+                    #for msg in context.conv_context:
+                    #    st.write(f"{msg['role']}: {msg['content']}")
+
+                    # Proceed to slot negotiation
+                    response = asyncio.run(run_agent(time_slot_negotiator, st.session_state.messages, context))
+                    st.markdown(response)
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    if not context.Booked_appointment:
+                        context.progress.append("time_slot_negotiator")
 
 if __name__ == "__main__":
     main()

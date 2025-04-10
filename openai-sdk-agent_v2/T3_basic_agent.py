@@ -7,14 +7,13 @@ from dataclasses import dataclass
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-from agents import Agent, Runner, function_tool, RunContextWrapper, handoff
+from agents import Agent, Runner, function_tool
 from dotenv import load_dotenv
 import uuid
 import ast
-from formats.pydantic_utils import ServiceValidationResult, CollectDetails,Appointment, Appointment_Customer
-from tool_defs.tool_utils import verify_email, verify_mobile_no, verify_services, book_appointment, cancel_appointment, get_filled_appointments, details_formatter_fn, handoff_message_filter, appointment_reporter, arrange_dropoff,check_dropoff_availability, call_record_logger
+from formats.pydantic_utils import ServiceValidationResult, CollectDetails
+from tool_defs.tool_utils import verify_email, verify_mobile_no, verify_services, book_appointment, cancel_appointment, get_filled_appointments, check_dropoff_availability
 from agents.extensions.visualization import draw_graph
-from prompts.prompt_utils import BOOKINGAGENT_BASIC_PROMPT
 
 
 from datetime import datetime, timezone
@@ -23,59 +22,44 @@ datetime_iso_format = now_utc.isoformat()
 
 
 
-
-
 from tinydb import TinyDB, Query
 # Initialize DB file
 APPOINTMENTS_DB = TinyDB("appointments.json")
+
 DROPOFF_DB=TinyDB("pickup_drop_off.json")
-
-
-
 # Function: Add an appointment
 # Load environment variables
 load_dotenv()
 
 
-
-
-
 VALID_SERVICES = ast.literal_eval(os.getenv("VALID_SERVICES", "[]"))
-
-pickup_dropoff_agent = Agent(
-    name="pickup_dropoff_agent", 
-    instructions="You are a helpful Assistant. you provide pickup and drop-off service "
-                "Keep responses short 1 sentence or less. Do not answer questions that do not belong to an appointment booking agent."
-                "first use check_dropoff_availability tool to see if the dropoff service is available,"
-                "if dropoff servie is available then ask user if a dropoff service is required"
-                "if the user needs a dropoff use arrange_dropoff tool to arrange it"
-                "After finsihing the dropoff arrangements, Ask the user to rate the conversation between 1-10, and call call_record_logger tool to finish conversation",
-    model="gpt-4o-mini",
-    tools=[arrange_dropoff, check_dropoff_availability, call_record_logger])
 
 
 time_slot_negotiator = Agent(
     name="time_slot_negotiator", 
-    instructions="You are a helpful assistant.You will be shceduling appointmnets based on users request."
+    instructions="You are a helpful assistant. You will be shceduling appointmnets based on users request."
                 "Keep responses short within a sentence or less. Do not answer questions that do not belong to an appointment booking agent."
-                f"For reference time and date now is {datetime_iso_format}, format all the dates in ISO 8601 format"
-                "You just ask the prefered dates and time window to book an appointent"
-                "After prefered time slot, use get_filled_appointments tool to get a list of filled appointments and propose slots that do not overlap with them."
+                "you will recieve users details as an input. You just ask the prefered dates to book an appointent, during the prefered dates ask for the prefered time window."
+                f"for reference time and date now is {datetime_iso_format}, format all the dates in ISO 8601 format"
+                "After prefered time slot just look at the filled appointments and propose slots that do not overlap."
+                "Ask if you need a pickup or dropoff and verify the availability before pickup/drop-off using dropoff_availability_tool"
                 "To book the appointment use book_appointment tool, while doing it use email as body"
                 "To cancel the appointment use cancel_appointment tool"
-                "After finishng all the tasks handoff to pickup_dropoff_agent",
+                "To get a list of filled appointments use get_filled_appointments"
+                "Once all the details are filled hand off to the formatting agent and get the formatted output",
     model="gpt-4o-mini",
-    handoffs=[pickup_dropoff_agent],
-    tools=[get_filled_appointments, book_appointment, cancel_appointment]
+    tools=[get_filled_appointments, book_appointment, cancel_appointment, check_dropoff_availability]
     )
-#
 
 
-class AnalysisSummary(BaseModel):
-    summary: str
-    """Short text summary for this aspect of the analysis."""
-
-
+details_formatter = Agent(
+    name="Formatter", 
+    instructions="You are an agent that recives the details and create the output in given format"
+    "After the formatting agent handoff the time_slot_negotiator agent",
+    model="gpt-4o-mini",
+    output_type=CollectDetails,
+    handoffs=[time_slot_negotiator]
+    )
 
 details_collector = Agent(
     name="details_collector", 
@@ -85,29 +69,19 @@ details_collector = Agent(
                 "Name, email, phone number, and services they want to book. Whenever you get any of the details first verify them"
                 "To verify email, mobile number, services use the tools verify_email, verify_mobile_no and verify_services"
                 "if they are not valid ask again and wait till you get valid, you can use as many function calls as you want"
-                "Once all the details are filled call details_formatter_fn"
-                "After formatting the details handoff to time_slot_negotiator",
+                "Once all the details are filled hand off to the formatting agent",
     model="gpt-4o-mini",
-    handoffs=[time_slot_negotiator],
-    tools=[verify_email, verify_mobile_no, verify_services, details_formatter_fn]
+    handoffs=[details_formatter],
+    tools=[verify_email, verify_mobile_no, verify_services]
     )
 
 
 
 
 
-
-
-#details_collector.handoffs.append(handoff(agent=time_slot_negotiator))
-#time_slot_negotiator.handoffs.append(handoff(agent=pickup_dropoff_agent))
-#pickup_dropoff_agent.handoffs.append()
- 
-
-
 agent=details_collector
-#agent=Orchestrator_Agent
-#draw_graph(agent).view()
-draw_graph(agent, filename="agent_graph")
+draw_graph(agent).view()
+draw_graph(agent, filename="agent_graph.png")
 
 
 @dataclass
@@ -119,8 +93,8 @@ class UserContext:
     services: List[str] = Field(default_factory=list)
 
 
-async def run_agent(messages, context):
-    result = await Runner.run(agent, input=messages, context=context)
+async def run_agent(messages):
+    result = await Runner.run(agent, input=messages)
     return result.final_output
 
 
@@ -142,14 +116,10 @@ async def run_agent_and_update_context(messages, user_id: str) -> UserContext:
 
 
 def main():
-    
     if "session_id" not in st.session_state:
         st.session_state.session_id = str(uuid.uuid4()) 
 
     st.set_page_config(page_title="Telepathy AI Assistant", page_icon="💬", layout="wide")
-    context=Appointment_Customer()
-
-    
 
     if st.button("🔄 Reset Session"):
         st.session_state.clear()
@@ -170,7 +140,7 @@ def main():
         
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                response = asyncio.run(run_agent(st.session_state.messages, context))
+                response = asyncio.run(run_agent(st.session_state.messages))
                 if isinstance(response, CollectDetails):
                     st.markdown(response.model_dump())
                     st.session_state.messages.append({"role":"assistant", "content": str(response.model_dump())})

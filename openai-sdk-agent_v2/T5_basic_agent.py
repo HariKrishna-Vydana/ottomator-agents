@@ -63,7 +63,7 @@ time_slot_negotiator = Agent(
                 "After prefered time slot, use get_filled_appointments tool to get a list of filled appointments and propose slots that do not overlap with them."
                 "To book the appointment use book_appointment tool, while doing it use email as body"
                 "To cancel the appointment use cancel_appointment tool"
-                "After finishng all the tasks handoff to pickup_dropoff_agent",
+                "To arrange pickup and dropoff handoff to pickup_dropoff_agent",
     model="gpt-4o-mini",
     handoffs=[pickup_dropoff_agent],
     tools=[get_filled_appointments, book_appointment, cancel_appointment]
