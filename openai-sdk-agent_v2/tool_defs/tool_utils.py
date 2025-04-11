@@ -14,7 +14,8 @@ from formats.pydantic_utils import ServiceValidationResult, CollectDetails, Appo
 import ast
 import aiohttp
 from dateutil import parser
-
+import pandas as pd
+from datetime import datetime, timedelta
 
 from agents import Agent, HandoffInputData, Runner, function_tool, handoff, trace
 from agents.extensions import handoff_filters
@@ -73,21 +74,21 @@ async def propose_slots_negotiator(activity: str, appointmentid: str, starttime:
 async def arrange_dropoff(context: RunContextWrapper[Appointment_Customer])->str:
     """ This tool arranges the dropoff service"""
     User=Query()
-    context.context.Dropoff=True
-    curr_ser=context.context.Services[0]
+    context.Dropoff=True
+    curr_ser=context.Services[0]
     curr_ser_row = DROPOFF_DB.search(User.service == curr_ser)[0]
     curr_ser_row['dropoff_cars']-=1
     DROPOFF_DB.update(curr_ser_row, User.service == curr_ser)
     print(f"Updated records: {DROPOFF_DB.all()}")
-    context.context.progress.append('Dropoff_arrianged')
+    context.progress.append('Dropoff_arranged')
     return "dropoff has been updated"
 
-@function_tool
+
 async def check_dropoff_availability(context: RunContextWrapper[Appointment_Customer])-> str:
     """ This tool checks if the dropoff service is available"""
     cars_available=0
     User=Query()
-    for s in context.context.Services:
+    for s in context.Services:
         #breakpoint()
         result = DROPOFF_DB.search(User.service == s)
         print(result)
@@ -97,9 +98,43 @@ async def check_dropoff_availability(context: RunContextWrapper[Appointment_Cust
         print(cars_available)
     
     if cars_available > 0:
-        return "The dropoff cars are available"
+        return "dropoff available"
     else:
-        return "The dropoff cars are not available"
+        return "dropoff not available"
+
+
+
+
+# Function to generate valid 15-minute slots
+def generate_timeslots_slots(start_time, end_time, existing_slots):
+    # Create a time range from start to end with 15-minute frequency
+    time_range = pd.date_range(start=start_time, end=end_time, freq='15T')
+
+    # List of valid slots that do not overlap with existing ones
+    valid_slots = []
+
+    for slot_start in time_range:
+        slot_end = slot_start + timedelta(minutes=15)
+        # Check if this slot overlaps with any existing slot
+        overlap = any(slot_start < ex_end and slot_end > ex_start for ex_start, ex_end in existing_slots)
+        if not overlap:
+            valid_slots.append({"start_time": slot_start, "end_time": slot_end})
+
+    return valid_slots
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -135,9 +170,9 @@ async def appointment_reporter(context: RunContextWrapper[Appointment_Customer],
 
 
 @function_tool
-async def call_record_logger(context: RunContextWrapper[Appointment_Customer], feedback:Optional[int])-> str:
+async def call_record_logger(context: RunContextWrapper[Appointment_Customer], score:Optional[int])-> str:
     """This function logs the whole conversation to finish the conversation"""
-    context.context.Satisfaction=feedback
+    context.context.Satisfaction=score
     CallRECORDS_DB.insert(context.context.dict())
     context.context.progress.append("call_record_updated")
     return "call_record_updated"
@@ -239,7 +274,7 @@ async def book_appointment(context: RunContextWrapper[Appointment_Customer], sta
 
     new_startTime = datetime.fromisoformat(startTime)-timedelta(minutes=1)
     startTime=new_startTime.isoformat().replace("+00:00", "Z")
-
+    
     print(f"Inside booking appointments........{input_json}")
     async with aiohttp.ClientSession() as session:
         try:
@@ -267,6 +302,12 @@ async def book_appointment(context: RunContextWrapper[Appointment_Customer], sta
         except Exception as e:
             return f"Error booking meeting: {e}"
         
+
+
+
+
+
+
 
 
 def handoff_message_filter(handoff_message_data: HandoffInputData) -> HandoffInputData:

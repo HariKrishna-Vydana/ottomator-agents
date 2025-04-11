@@ -27,7 +27,7 @@ class Appointment(BaseModel):
 
 
 class Appointment_Customer(BaseModel):
-    progress:Optional[List[str]] = Field(default=[], description="Excution history")
+    progress:Optional[List[str]] = Field(default=['Initial_state'], description="Excution history")
     conv_context: Optional[List[Dict]] = Field(default=[], description="conversation histroy of an LLM")
     Name: str | None = None
     Email: str | None = None

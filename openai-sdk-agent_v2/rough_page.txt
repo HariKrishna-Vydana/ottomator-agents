@@ -1,0 +1,29 @@
+
+
+A gents 5, 11 are the best so far 
+
+
+
+""""
+
+class Appointment(BaseModel):
+    startTime: str | None = '2025-04-10T16:30:00Z'
+    endTime: str | None = '2025-04-10T17:00:00Z'
+    subject: str | None = 'Booing appointment foroil change'
+    user: str | None = 'hari.vydana@telepathy.ai'
+    body : str | None = 'Booing appointment foroil change'
+   
+
+
+class Appointment_Customer(BaseModel):
+    progress:Optional[List[str]] = Field(default=["Initial_state","details_collected", "summary_appended", 'appointment_booked'], description="Excution history")
+    conv_context: Optional[List[Dict]] = Field(default=None, description="conversation histroy of an LLM")
+    Name: str | None = "Hari"
+    Email: str | None = "hari.vydana@telepathy.ai"
+    Phone_number: str | None = "1234567810"
+    Services: Optional[List[str]] = ["oil change"]
+    Booked_appointment: Appointment | None = None
+    Dropoff: Optional[bool] = None
+    Satisfaction: Optional[int] = None
+
+"""
